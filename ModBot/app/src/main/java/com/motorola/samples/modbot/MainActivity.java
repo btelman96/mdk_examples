@@ -46,7 +46,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rrv = findViewById(R.id.right_reverse);
         vidView = (TextView) findViewById(R.id.vidView);
         speedControl = (SeekBar) findViewById(R.id.speed_control);
+        speedControl.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                processSpeeds();
+            }
 
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
         lfv.setOnClickListener(this);
         rfv.setOnClickListener(this);
         lrv.setOnClickListener(this);
