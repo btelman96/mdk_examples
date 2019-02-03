@@ -1,7 +1,6 @@
 package com.motorola.samples.modbot;
 
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
@@ -10,13 +9,14 @@ import android.graphics.Color;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.motorola.mod.ModDevice;
 import com.motorola.mod.ModManager;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     ModManagerInterface modMgr;
     ModBotRaw modBotRaw;
 
@@ -29,7 +29,11 @@ public class MainActivity extends AppCompatActivity {
     View rfv;   // Right forward view
     View lrv;   // Left reverse view
     View rrv;   // Right reverse view
+    SeekBar speedControl;
     TextView vidView;  // Current Mod's VID/PID
+    private float right;
+    private float left;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +45,13 @@ public class MainActivity extends AppCompatActivity {
         lrv = findViewById(R.id.left_reverse);
         rrv = findViewById(R.id.right_reverse);
         vidView = (TextView) findViewById(R.id.vidView);
+        speedControl = (SeekBar) findViewById(R.id.speed_control);
+
+        lfv.setOnClickListener(this);
+        rfv.setOnClickListener(this);
+        lrv.setOnClickListener(this);
+        rrv.setOnClickListener(this);
+        vidView.setOnClickListener(this);
     }
 
     @Override
@@ -171,10 +182,7 @@ public class MainActivity extends AppCompatActivity {
             // Process all historical movement samples in the batch
             final int historySize = event.getHistorySize();
 
-            if (modActive) {
-                // Process the current movement sample in the batch (position -1)
-                processJoystickInput(event, -1);
-            }
+            processJoystickInput(event, -1);
 
             return true;
         }
@@ -212,21 +220,27 @@ public class MainActivity extends AppCompatActivity {
         // Calculate the vertical distance to move by
         // using the input value from one of these physical controls:
         // the left control stick, hat switch, or the right control stick.
-        float left = getCenteredAxis(event, mInputDevice,
+        left = getCenteredAxis(event, mInputDevice,
                 MotionEvent.AXIS_Y, historyPos);
-        float right = getCenteredAxis(event, mInputDevice,
+        right = getCenteredAxis(event, mInputDevice,
                 MotionEvent.AXIS_RZ, historyPos);
+        processSpeeds();
+    }
+
+    private void processSpeeds() {
         byte newLeft = Constants.STOP;
         byte newRight = Constants.STOP;
+
+        int speed = speedControl.getProgress();
 
         if (left > 0.5f) {
             lrv.setBackgroundColor(Color.GREEN);
             lfv.setBackgroundColor(Color.BLACK);
-            newLeft = -100;
+            newLeft = (byte) -speed;
         } else if (left < -0.5f) {
             lrv.setBackgroundColor(Color.BLACK);
             lfv.setBackgroundColor(Color.GREEN);
-            newLeft = 100;
+            newLeft = (byte) speed;
         } else {
             lfv.setBackgroundColor(Color.BLACK);
             lrv.setBackgroundColor(Color.BLACK);
@@ -234,17 +248,17 @@ public class MainActivity extends AppCompatActivity {
         if (right > 0.5f) {
             rrv.setBackgroundColor(Color.GREEN);
             rfv.setBackgroundColor(Color.BLACK);
-            newRight = -100;
+            newRight = (byte) -speed;
         } else if (right < -0.5f) {
             rrv.setBackgroundColor(Color.BLACK);
             rfv.setBackgroundColor(Color.GREEN);
-            newRight = 100;
+            newRight = (byte) speed;
         } else {
             rfv.setBackgroundColor(Color.BLACK);
             rrv.setBackgroundColor(Color.BLACK);
         }
 
-        if (modBotRaw != null) {
+        if (modActive && modBotRaw != null) {
             if ((newLeft != curLeft) || (newRight != curRight)) {
                 curLeft = newLeft;
                 curRight = newRight;
@@ -253,4 +267,26 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()){
+            case R.id.left_forward:
+                left = -1;
+                break;
+            case R.id.right_forward:
+                right = -1;
+                break;
+            case R.id.left_reverse:
+                left = 1;
+                break;
+            case R.id.right_reverse:
+                right = 1;
+                break;
+            case R.id.vidView:
+                left = 0;
+                right = 0;
+                break;
+        }
+        processSpeeds();
+    }
 }
