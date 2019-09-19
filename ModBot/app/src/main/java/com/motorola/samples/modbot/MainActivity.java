@@ -49,7 +49,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         speedControl.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                processSpeeds();
+                processUI();
+                processSpeeds(false);
             }
 
             @Override
@@ -239,23 +240,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 MotionEvent.AXIS_Y, historyPos);
         right = getCenteredAxis(event, mInputDevice,
                 MotionEvent.AXIS_RZ, historyPos);
-        processSpeeds();
+        processUI();
+        processSpeeds(true);
     }
 
-    private void processSpeeds() {
-        byte newLeft = Constants.STOP;
-        byte newRight = Constants.STOP;
-
-        int speed = speedControl.getProgress();
-
+    private void processUI(){
         if (left > 0.5f) {
             lrv.setBackgroundColor(Color.GREEN);
             lfv.setBackgroundColor(Color.BLACK);
-            newLeft = (byte) -speed;
         } else if (left < -0.5f) {
             lrv.setBackgroundColor(Color.BLACK);
             lfv.setBackgroundColor(Color.GREEN);
-            newLeft = (byte) speed;
         } else {
             lfv.setBackgroundColor(Color.BLACK);
             lrv.setBackgroundColor(Color.BLACK);
@@ -263,14 +258,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (right > 0.5f) {
             rrv.setBackgroundColor(Color.GREEN);
             rfv.setBackgroundColor(Color.BLACK);
-            newRight = (byte) -speed;
         } else if (right < -0.5f) {
             rrv.setBackgroundColor(Color.BLACK);
             rfv.setBackgroundColor(Color.GREEN);
-            newRight = (byte) speed;
         } else {
             rfv.setBackgroundColor(Color.BLACK);
             rrv.setBackgroundColor(Color.BLACK);
+        }
+    }
+
+    private void processSpeeds(boolean joystick) {
+        byte newLeft = Constants.STOP;
+        byte newRight = Constants.STOP;
+
+        int speed = speedControl.getProgress()+5;
+        if(joystick){
+            newLeft = (byte)(-left*100.0f);
+            newRight = (byte)(-right*100.0f);
+        }
+        else{
+            if (left > 0.5f) {
+                newLeft = (byte) -speed;
+            } else if (left < -0.5f) {
+                newLeft = (byte) speed;
+            }
+            if (right > 0.5f) {
+                newRight = (byte) -speed;
+            } else if (right < -0.5f) {
+                newRight = (byte) speed;
+            }
         }
 
         if (modActive && modBotRaw != null) {
@@ -302,6 +318,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 right = 0;
                 break;
         }
-        processSpeeds();
+        processUI();
+        processSpeeds(false);
     }
 }
