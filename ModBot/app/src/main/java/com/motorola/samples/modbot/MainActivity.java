@@ -1,5 +1,9 @@
 package com.motorola.samples.modbot;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Message;
@@ -11,9 +15,12 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.motorola.mod.ModDevice;
 import com.motorola.mod.ModManager;
+
+import java.util.Objects;
 
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -33,13 +40,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     TextView vidView;  // Current Mod's VID/PID
     private float right;
     private float left;
-
+    RemoReceiver remoReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        if(checkCallingPermission(REMO_SDK_CONTROL_SOCKET_PERMISSION) ==
+                PackageManager.PERMISSION_GRANTED){
+            setupRemoReceiver();
+        }
+        else{
+            requestPermissions(new String[]{REMO_SDK_CONTROL_SOCKET_PERMISSION}, REMO_REQUEST_CODE);
+        }
         lfv = findViewById(R.id.left_forward);
         rfv = findViewById(R.id.right_forward);
         lrv = findViewById(R.id.left_reverse);
@@ -70,6 +83,44 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         vidView.setOnClickListener(this);
     }
 
+    private void setupRemoReceiver() {
+        remoReceiver = new RemoReceiver(this, new RemoListener() {
+            @Override
+            public void onCommand(String command) {
+                switch (command.toLowerCase().replace("\r\n", "")){
+                    case "f":
+                        left = right = -1;
+                        processSpeeds(false);
+                        processUI();
+                        break;
+                    case "b":
+                        left = right = 1;
+                        processSpeeds(false);
+                        processUI();
+                        break;
+                    case "l":
+                        left = .5f;
+                        right = -.5f;
+                        processSpeeds(true);
+                        processUI();
+                        break;
+                    case "r":
+                        left = -.5f;
+                        right = .5f;
+                        processSpeeds(true);
+                        processUI();
+                        break;
+                    case "stop":
+                        left = right = 0;
+                        processSpeeds(false);
+                        processUI();
+                        break;
+                }
+            }
+        });
+        remoReceiver.register();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -93,6 +144,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onDestroy() {
         super.onDestroy();
         releaseModManager();
+        if(remoReceiver != null)
+            remoReceiver.unregister();
     }
 
     // Initialize connection
@@ -147,6 +200,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    private static int REMO_REQUEST_CODE = 0x22;
     private static int RAW_REQUEST_CODE = 0x25;
     private Handler rawHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -176,6 +230,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 // To pop up a description dialog or other prompts to explain app cannot work
                 // without permission.
+            }
+        }
+        else if(requestCode == REMO_REQUEST_CODE){
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                setupRemoReceiver();
+            }
+            else{
+                Toast.makeText(this, "Unable to receive remo controls", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -320,5 +382,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         processUI();
         processSpeeds(false);
+    }
+
+    static class RemoReceiver extends BroadcastReceiver{
+        private final Context context;
+        private final RemoListener listener;
+
+        public RemoReceiver(Context context, RemoListener listener){
+            this.context = context;
+            this.listener = listener;
+        }
+
+        public void register(){
+            IntentFilter filter = new IntentFilter(REMO_SDK_CONTROL_SOCKET);
+            context.registerReceiver(this, filter);
+            listener.onCommand("stop");
+        }
+
+        public void unregister(){
+            context.unregisterReceiver(this);
+            listener.onCommand("stop");
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(Objects.equals(intent.getAction(), REMO_SDK_CONTROL_SOCKET)){
+                listener.onCommand(intent.getStringExtra("command"));
+            }
+        }
+    }
+
+    public final static String REMO_SDK_CONTROL_SOCKET = "tv.remo.android.controller.sdk.socket.controls";
+    public final static String REMO_SDK_CONTROL_SOCKET_PERMISSION = "tv.remo.android.controller.sdk.socket.controls";
+
+    public interface RemoListener{
+        void onCommand(String command);
     }
 }
